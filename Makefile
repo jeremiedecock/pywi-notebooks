@@ -1,46 +1,102 @@
-# Makefile with some convenient quick ways to do common things
+include meta.make
 
 ###############################################################################
 
-all: help
+JUPYTER = jupyter
 
-.PHONY : all \
-		 clean \
-	     help \
-	     list \
-		 publish \
-		 trailing-spaces
+HTML_FILES = $(patsubst %.ipynb,%.html,$(wildcard *.ipynb))
+PDF_FILES = $(patsubst %.ipynb,%.pdf,$(wildcard *.ipynb))
+TEX_FILES = $(patsubst %.ipynb,%.tex,$(wildcard *.ipynb))
+MD_FILES = $(patsubst %.ipynb,%.md,$(wildcard *.ipynb))
+PY_FILES = $(patsubst %.ipynb,%.py,$(wildcard *.ipynb))
+RST_FILES = $(patsubst %.ipynb,%.rst,$(wildcard *.ipynb))
+SLIDES_FILES = $(patsubst %.ipynb,%_slides.html,$(wildcard *.ipynb))
+JDHP_FILES = $(patsubst %.ipynb,%.jdhp,$(wildcard *.ipynb))
 
-###############################################################################
-
-PYTHON=python3
-
-## HELP #######################################################################
-
-# See http://stackoverflow.com/questions/4219255/how-do-you-get-the-list-of-targets-in-a-makefile
-
-help: list
-
-list:
-	@echo "Available targets:"
-	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
+.PHONY : all clean init jdhp publish html pdf latex tex markdown md python py rst slides
+	
+all: html
 
 ###############################################################################
 
-trailing-spaces:
-	find $(PYTHON_PACKAGE_NAME) examples docs -name "*.py" -exec perl -pi -e 's/[ \t]*$$//' {} \;
+html: $(HTML_FILES)
 
-## PUBLISH ####################################################################
+pdf: $(PDF_FILES)
 
-# See https://docs.anaconda.com/anaconda-cloud/user-guide/getting-started#sharing-notebooks
+latex: $(TEX_FILES)
 
-publish:
-	anaconda upload pywi_demo.ipynb
+tex: $(TEX_FILES)
+
+markdown: $(MD_FILES)
+
+md: $(MD_FILES)
+
+python: $(PY_FILES)
+
+py: $(PY_FILES)
+
+rst: $(RST_FILES)
+
+slides: $(SLIDES_FILES)
+
+jdhp: $(JDHP_FILES)
+
+publish: jdhp
+
+###############################################################################
+
+%.html: %.ipynb
+	$(JUPYTER) nbconvert --to html --template='tools/jdhp_html_fr.tpl' --execute $<
+
+%.pdf: %.ipynb
+	$(JUPYTER) nbconvert --to pdf --execute $<
+
+%.tex: %.ipynb
+	$(JUPYTER) nbconvert --to latex --execute $<
+
+%.md: %.ipynb
+	$(JUPYTER) nbconvert --to markdown --execute $<
+
+%.py: %.ipynb
+	$(JUPYTER) nbconvert --to python --execute $<
+
+%.rst: %.ipynb
+	$(JUPYTER) nbconvert --to rst --execute $<
+
+%_slides.html: %.ipynb
+	$(JUPYTER) nbconvert --to slides --execute $<
+
+# PUBLISH #####################################################################
+
+%.jdhp: %.html
+	# JDHP_DL_URI is a shell environment variable that contains the destination
+	# URI of the PDF files.
+	@if test -z $$JDHP_DL_URI ; then exit 1 ; fi
+	
+	# JDHP_DOCS_URI is a shell environment variable that contains the
+	# destination URI of the HTML files.
+	@if test -z $$JDHP_DOCS_URI ; then exit 1 ; fi
+	
+	# Upload the HTML files
+	rsync -v -e ssh $< ${JDHP_DOCS_URI}/$(NAME)/
+	
+	# Upload the Notebooks
+	# See https://www.gnu.org/software/make/manual/html_node/Quick-Reference.html
+	rsync -v -e ssh $(patsubst %.html,%.ipynb,$<) ${JDHP_DL_URI}/notebook/$(NAME)/
+	
+	# TODO: upload 2 .ipynb files, one without output (e.g. foo.ipynb) and the
+	# other with output (e.g. foo.out.ipynb) and push the second one on
+	# publication plateforms like http://nbviewer.jupyter.org/
+	
+	touch $@
 
 ## CLEAN ######################################################################
 
-init: clean
-
 clean:
-	@echo "Remove generated files"
-	# TODO
+	@echo "Remove output files"
+	@rm -f $(HTML_FILES) $(PDF_FILES) $(TEX_FILES) $(MD_FILES) $(PY_FILES) $(RST_FILES) $(SLIDES_FILES) $(JDHP_FILES)
+	@rm -rf __pycache__/
+	@echo "Strip output from Jupyter Notebook files"
+	@./tools/strip_ipynb_output.py *.ipynb
+
+init: clean

@@ -1,2 +1,2 @@
-pywi==0.3.dev7
+pywi==0.3.dev8
 scikit-image==0.14.1

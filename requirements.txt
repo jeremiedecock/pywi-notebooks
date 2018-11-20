@@ -1,1 +1,2 @@
 pywi==0.3.dev5
+scikit-image==0.14.1

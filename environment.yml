@@ -1,0 +1,10 @@
+name: pywi-nb
+channels:
+  - jdhp
+  - conda-forge
+dependencies:
+  - pywi=0.3.dev10
+  - ipywidgets
+  - jupyter
+  - notebook
+  - matplotlib
